@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar, ActiveTab } from './Sidebar';
 import { Header } from './Header';
-import { FloatingAI } from './FloatingAI';
+
 
 export const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
@@ -45,17 +45,7 @@ export const MainLayout: React.FC = () => {
         </main>
       </div>
 
-      {activeTab !== 'ai-assistant' && (
-        <FloatingAI
-          isOpen={floatingAIOpen}
-          onClose={() => setFloatingAIOpen(false)}
-          onOpen={() => setFloatingAIOpen(true)}
-          onExpandToFull={(query) => {
-             setFloatingAIOpen(false);
-             navigate('/ai-assistant', { state: { initialQuery: query } });
-          }}
-        />
-      )}
+
     </div>
   );
 };

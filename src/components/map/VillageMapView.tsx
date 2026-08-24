@@ -29,6 +29,18 @@ interface VillageMapViewProps {
   onSelectHouse?: (houseId: number) => void;
 }
 
+const normalizeMapHouse = (house: any): House => ({
+  ...house,
+  house_number: house.house_number ?? house.houseNumber ?? '',
+  parcel_id: house.parcel_id ?? house.parcelId ?? '',
+  latitude: Number(house.latitude),
+  longitude: Number(house.longitude),
+  house_type: house.house_type ?? house.houseType ?? 'OTHER',
+  ownership_type: house.ownership_type ?? house.ownershipType ?? 'UNKNOWN',
+  families_count: house.families_count ?? house._count?.families ?? 0,
+  population: house.population ?? 0,
+});
+
 export const VillageMapView: React.FC<VillageMapViewProps> = ({ onSelectHouse }) => {
   const [houses, setHouses] = useState<House[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,9 +60,14 @@ export const VillageMapView: React.FC<VillageMapViewProps> = ({ onSelectHouse })
     try {
       setLoading(true);
       const data = await api.getMapHouses();
-      setHouses(data);
-      if (data.length > 0) {
-        setMapCenter([data[0].latitude, data[0].longitude]);
+      const payload = data as House[] | { items?: House[] };
+      const rawHouses = Array.isArray(payload) ? payload : payload.items || [];
+      const normalizedHouses = rawHouses
+        .map(normalizeMapHouse)
+        .filter((house) => Number.isFinite(house.latitude) && Number.isFinite(house.longitude));
+      setHouses(normalizedHouses);
+      if (normalizedHouses.length > 0) {
+        setMapCenter([normalizedHouses[0].latitude, normalizedHouses[0].longitude]);
       }
     } catch (err) {
       console.error('Failed to load map houses:', err);

@@ -93,20 +93,6 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center space-x-2 sm:space-x-3">
-        {/* Quick Launch AI */}
-        {activeTab !== 'ai-assistant' && (
-          <button
-            id="header-ai-ask-btn"
-            onClick={onOpenAI}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold shadow-xs shadow-emerald-700/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <Bot className="w-4 h-4 text-emerald-100" />
-            <span className="hidden sm:inline">Ask AI Analyst</span>
-            <Sparkles className="w-3 h-3 text-emerald-200 hidden sm:inline" />
-          </button>
-        )}
-      </div>
     </header>
   );
 };

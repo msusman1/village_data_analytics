@@ -79,17 +79,9 @@ async function startServer() {
     // DATA ROUTES (Protected by requireAuth)
     // ----------------------------------------------------
     // Mount Prisma-based API routes
-    app.use('/api/houses', requireAuth, apiRoutes);
-    app.use('/api/families', requireAuth, apiRoutes);
-    app.use('/api/people', requireAuth, apiRoutes);
-    app.use('/api/education', requireAuth, apiRoutes);
-    app.use('/api/employment', requireAuth, apiRoutes);
-    app.use('/api/skills', requireAuth, apiRoutes);
-    app.use('/api/land', requireAuth, apiRoutes);
-    app.use('/api/vehicles', requireAuth, apiRoutes);
-    app.use('/api/household-facilities', requireAuth, apiRoutes);
-    app.use('/api/map', requireAuth, apiRoutes);
-    app.use('/api/ai', requireAuth, apiRoutes);
+    // The router already declares resource paths such as /houses and /families.
+    // Mount it at /api so /api/houses reaches router.get('/houses').
+    app.use('/api', requireAuth, apiRoutes);
 
     // ----------------------------------------------------
     // DASHBOARD & STATS API
@@ -144,13 +136,80 @@ async function startServer() {
                 select: {
                     id: true,
                     houseNumber: true,
+                    parcelId: true,
                     latitude: true,
                     longitude: true,
                     houseType: true,
+                    ownershipType: true,
                     _count: {select: {families: true}},
                 },
             });
-            res.json(houses);
+            res.json(houses.map((house) => ({
+                id: house.id,
+                house_number: house.houseNumber,
+                parcel_id: house.parcelId || '',
+                latitude: Number(house.latitude),
+                longitude: Number(house.longitude),
+                house_type: house.houseType,
+                ownership_type: house.ownershipType,
+                families_count: house._count.families,
+                population: 0,
+            })).filter((house) => Number.isFinite(house.latitude) && Number.isFinite(house.longitude)));
+        } catch (error: any) {
+            res.status(500).json({error: error.message});
+        }
+    });
+
+    app.get('/api/map/nearby', requireAuth, async (req: Request, res: Response) => {
+        try {
+            const houseNumber = String(req.query.house || '');
+            const radius = Math.max(0, Number(req.query.radius || 500));
+            const houses = await prisma.houses.findMany({
+                select: {
+                    id: true,
+                    houseNumber: true,
+                    parcelId: true,
+                    latitude: true,
+                    longitude: true,
+                    houseType: true,
+                    ownershipType: true,
+                    _count: {select: {families: true}},
+                },
+            });
+            const target = houses.find((house) => house.houseNumber === houseNumber);
+            if (!target || target.latitude == null || target.longitude == null) {
+                res.json([]);
+                return;
+            }
+
+            const toRadians = (value: number) => (value * Math.PI) / 180;
+            const targetLatitude = Number(target.latitude);
+            const targetLongitude = Number(target.longitude);
+            const nearby = houses.map((house) => {
+                const latitude = Number(house.latitude);
+                const longitude = Number(house.longitude);
+                const dLatitude = toRadians(latitude - targetLatitude);
+                const dLongitude = toRadians(longitude - targetLongitude);
+                const a = Math.sin(dLatitude / 2) ** 2
+                    + Math.cos(toRadians(targetLatitude)) * Math.cos(toRadians(latitude))
+                    * Math.sin(dLongitude / 2) ** 2;
+                const distance = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                return {
+                    id: house.id,
+                    house_number: house.houseNumber,
+                    parcel_id: house.parcelId || '',
+                    latitude,
+                    longitude,
+                    house_type: house.houseType,
+                    ownership_type: house.ownershipType,
+                    families_count: house._count.families,
+                    population: 0,
+                    distance_meters: Math.round(distance),
+                };
+            }).filter((house) => Number.isFinite(house.distance_meters) && house.distance_meters <= radius)
+                .sort((a, b) => a.distance_meters - b.distance_meters);
+
+            res.json(nearby);
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
@@ -175,6 +234,11 @@ async function startServer() {
                 visualizations: [],
             });
         }
+    });
+
+    // Never let an unmatched API request fall through to the SPA HTML shell.
+    app.use('/api', (_req: Request, res: Response) => {
+        res.status(404).json({error: 'API route not found'});
     });
 
     // ----------------------------------------------------

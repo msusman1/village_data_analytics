@@ -38,13 +38,21 @@ router.get('/houses', async (req: Request, res: Response) => {
     ]);
 
     res.json({
-      items,
-      pagination: {
-        total,
-        page: p,
-        limit: l,
-        totalPages: Math.ceil(total / l),
-      },
+      items: items.map((house) => ({
+        id: house.id,
+        house_number: house.houseNumber,
+        parcel_id: house.parcelId || '',
+        house_type: house.houseType,
+        ownership_type: house.ownershipType,
+        latitude: house.latitude == null ? null : Number(house.latitude),
+        longitude: house.longitude == null ? null : Number(house.longitude),
+        families_count: house._count.families,
+        population: 0,
+      })),
+      total,
+      page: p,
+      limit: l,
+      totalPages: Math.ceil(total / l),
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
