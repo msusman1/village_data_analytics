@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ShieldCheck, Lock, Mail, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
 
 export const LoginView: React.FC = () => {
   const { login } = useAuth();
-  const [email, setEmail] = useState('admin@lakrakhurd.gov.pk');
-  const [password, setPassword] = useState('AdminPassword2026!');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/';
+
+  const [email, setEmail] = useState('admin@gmail.com');
+  const [password, setPassword] = useState('admin123');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,7 +21,9 @@ export const LoginView: React.FC = () => {
 
     try {
       const res = await login(email, password);
-      if (!res.success) {
+      if (res.success) {
+        navigate(from, { replace: true });
+      } else {
         setError(res.message || 'Invalid credentials');
       }
     } catch (err: any) {
@@ -26,10 +33,7 @@ export const LoginView: React.FC = () => {
     }
   };
 
-  const handleFillDemo = () => {
-    setEmail('admin@lakrakhurd.gov.pk');
-    setPassword('AdminPassword2026!');
-  };
+
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 sm:p-6 text-slate-100">
@@ -44,10 +48,10 @@ export const LoginView: React.FC = () => {
             LK
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-            Lakra Khurd
+            LK-INSIGHTS
           </h1>
           <p className="text-xs text-emerald-400 font-medium flex items-center gap-1.5 mt-1">
-            <ShieldCheck className="w-3.5 h-3.5" /> Village Demographic & AI Platform
+            <ShieldCheck className="w-3.5 h-3.5" /> Demographic Analytics & AI Platform
           </p>
         </div>
 
@@ -71,7 +75,7 @@ export const LoginView: React.FC = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@lakrakhurd.gov.pk"
+                placeholder="exampl@gmail.com"
                 className="w-full pl-9 pr-3 py-2.5 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 transition-colors placeholder:text-slate-500"
               />
             </div>
@@ -112,17 +116,7 @@ export const LoginView: React.FC = () => {
           </button>
         </form>
 
-        {/* Quick Fill Credentials Banner */}
-        <div className="mt-6 pt-4 border-t border-slate-800 text-center">
-          <button
-            type="button"
-            onClick={handleFillDemo}
-            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-emerald-400 transition-colors"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Use Pre-filled Administrator Credentials</span>
-          </button>
-        </div>
+
       </div>
     </div>
   );

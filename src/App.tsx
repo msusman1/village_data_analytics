@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { Sidebar, ActiveTab } from './components/layout/Sidebar';
-import { Header } from './components/layout/Header';
-import { FloatingAI } from './components/layout/FloatingAI';
+import { MainLayout } from './components/layout/MainLayout';
 import { LoginView } from './views/LoginView';
 import { DashboardView } from './views/DashboardView';
 import { AIAssistantView } from './views/AIAssistantView';
@@ -12,110 +11,69 @@ import { FamiliesView } from './views/FamiliesView';
 import { PeopleView } from './views/PeopleView';
 import { ResourcesView, ResourceSubTab } from './views/ResourcesView';
 
-const AppContent: React.FC = () => {
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
-  const [floatingAIOpen, setFloatingAIOpen] = useState<boolean>(false);
-  const [aiAssistantInitialQuery, setAiAssistantInitialQuery] = useState<string | undefined>();
+  const location = useLocation();
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-slate-300">
         <div className="w-10 h-10 border-3 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mb-4" />
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-          Loading Lakra Khurd Demographic Database...
+          Loading Village Analytics Platform...
         </p>
       </div>
     );
   }
 
   if (!isAuthenticated) {
-    return <LoginView />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  const handleAskAI = (query: string) => {
-    setAiAssistantInitialQuery(query);
-    setActiveTab('ai-assistant');
-  };
+  return <>{children}</>;
+};
 
-  const handleExpandFloatingAI = (query?: string) => {
-    if (query) setAiAssistantInitialQuery(query);
-    setActiveTab('ai-assistant');
-  };
-
+const AppRoutes: React.FC = () => {
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 flex font-sans antialiased">
-      {/* Collapsible Administrative Sidebar */}
-      <Sidebar
-        activeTab={activeTab}
-        onSelectTab={(tab) => {
-          setActiveTab(tab);
-          setSidebarOpen(false);
-        }}
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-      />
+    <Routes>
+      <Route path="/login" element={<LoginView />} />
+      
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <MainLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<DashboardView onNavigate={() => {}} onAskAI={() => {}} />} />
+        <Route path="dashboard" element={<Navigate to="/" replace />} />
+        <Route path="ai-assistant" element={<AIAssistantView />} />
+        <Route path="map" element={<VillageMapView />} />
+        <Route path="houses" element={<HousesView />} />
+        <Route path="families" element={<FamiliesView />} />
+        <Route path="people" element={<PeopleView />} />
+        
+        {['education', 'employment', 'skills', 'land', 'vehicles', 'facilities'].map((tab) => (
+          <Route 
+            key={tab} 
+            path={tab} 
+            element={<ResourcesView initialTab={tab as ResourceSubTab} />} 
+          />
+        ))}
+      </Route>
 
-      {/* Main Content Area */}
-      <div className="flex-1 lg:pl-64 flex flex-col min-w-0 min-h-screen">
-        <Header
-          activeTab={activeTab}
-          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          onOpenAI={() => setFloatingAIOpen(true)}
-        />
-
-        <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
-          {activeTab === 'dashboard' && (
-            <DashboardView
-              onNavigate={(tab) => setActiveTab(tab)}
-              onAskAI={handleAskAI}
-            />
-          )}
-
-          {activeTab === 'ai-assistant' && (
-            <AIAssistantView
-              initialQuery={aiAssistantInitialQuery}
-              onClearInitialQuery={() => setAiAssistantInitialQuery(undefined)}
-            />
-          )}
-
-          {activeTab === 'map' && <VillageMapView />}
-
-          {activeTab === 'houses' && <HousesView />}
-
-          {activeTab === 'families' && <FamiliesView />}
-
-          {activeTab === 'people' && <PeopleView />}
-
-          {(activeTab === 'education' ||
-            activeTab === 'employment' ||
-            activeTab === 'skills' ||
-            activeTab === 'land' ||
-            activeTab === 'vehicles' ||
-            activeTab === 'facilities') && (
-            <ResourcesView initialTab={activeTab as ResourceSubTab} />
-          )}
-        </main>
-      </div>
-
-      {/* Floating AI Drawer Widget (Available across non-AI screens) */}
-      {activeTab !== 'ai-assistant' && (
-        <FloatingAI
-          isOpen={floatingAIOpen}
-          onClose={() => setFloatingAIOpen(false)}
-          onOpen={() => setFloatingAIOpen(true)}
-          onExpandToFull={handleExpandFloatingAI}
-        />
-      )}
-    </div>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 };
 
 export const App: React.FC = () => {
   return (
     <AuthProvider>
-      <AppContent />
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
     </AuthProvider>
   );
 };

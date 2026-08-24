@@ -1,9 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import { prisma } from '../db/prisma.js';
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@lakrakhurd.gov.pk';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'AdminPassword2026!';
-const SESSION_SECRET = process.env.SESSION_SECRET || 'lakra_khurd_session_secret_key_2026';
+
 
 export const AUTH_COOKIE_NAME = 'village_auth_session';
 
@@ -14,23 +13,33 @@ export interface ActiveSession {
   createdAt: number;
 }
 
-// In-memory token store mapped to active sessions
-const activeTokens = new Map<string, ActiveSession>();
+export async function authenticateAdmin(email: string, pass: string): Promise<{ success: boolean; token?: string; user?: any; message?: string }> {
+  // Query User table for authentication
+  const user = await prisma.user.findFirst({
+    where: {
+      email: email.trim().toLowerCase(),
+      password: pass,
+    },
+  });
 
-export function authenticateAdmin(email: string, pass: string): { success: boolean; token?: string; user?: any; message?: string } {
-  if (email.trim().toLowerCase() !== ADMIN_EMAIL.toLowerCase() || pass !== ADMIN_PASSWORD) {
+  if (!user) {
     return { success: false, message: 'Invalid administrative email or password' };
   }
 
   const token = crypto.randomBytes(32).toString('hex');
+  
+  // Update token in User table
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { token: token },
+  });
+
   const session: ActiveSession = {
-    email: ADMIN_EMAIL,
+    email: user.email,
     role: 'ADMINISTRATOR',
-    name: 'Village Administrator',
+    name: user.email.split('@')[0], // Fallback name
     createdAt: Date.now(),
   };
-
-  activeTokens.set(token, session);
 
   return {
     success: true,
@@ -44,27 +53,42 @@ export function authenticateAdmin(email: string, pass: string): { success: boole
   };
 }
 
-export function validateSessionToken(token: string | undefined): ActiveSession | null {
+export async function validateSessionToken(token: string | undefined): Promise<ActiveSession | null> {
   if (!token) return null;
-  const session = activeTokens.get(token);
-  if (!session) return null;
-  // Expire after 7 days
-  if (Date.now() - session.createdAt > 7 * 24 * 60 * 60 * 1000) {
-    activeTokens.delete(token);
-    return null;
-  }
-  return session;
+
+  const user = await prisma.user.findFirst({
+    where: { token: token },
+  });
+
+  if (!user) return null;
+  
+  // Note: We don't have a createdAt for token in DB, so we rely on token existence
+  // If session expiration is needed, a tokenCreatedAt column should be added to the User table
+  
+  return {
+    email: user.email,
+    role: 'ADMINISTRATOR',
+    name: user.email.split('@')[0],
+    createdAt: Date.now(), // Fake it for compatibility if needed
+  };
 }
 
-export function logoutSessionToken(token: string | undefined): void {
+export async function logoutSessionToken(token: string | undefined): Promise<void> {
   if (token) {
-    activeTokens.delete(token);
+    try {
+      await prisma.user.updateMany({
+        where: { token: token },
+        data: { token: null },
+      });
+    } catch (e) {
+      // Ignore errors during logout
+    }
   }
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const token = req.cookies?.[AUTH_COOKIE_NAME] || req.headers.authorization?.replace(/^Bearer\s+/i, '');
-  const session = validateSessionToken(token);
+  const session = await validateSessionToken(token);
 
   if (!session) {
     res.status(401).json({ error: 'Unauthorized: Valid administrative session required', isAuthenticated: false });

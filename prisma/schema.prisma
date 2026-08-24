@@ -1,0 +1,251 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model EducationData {
+  id                    Int                    @id @default(autoincrement())
+  personId              Int                    @unique @map("person_id")
+  educationStatus       String?                @map("education_status") @db.VarChar(50)
+  highestEducationLevel HighestEducationLevel? @default(NONE) @map("highest_education_level")
+  isCurrentlyStudying   Boolean?               @default(false) @map("is_currently_studying")
+  createdAt             DateTime?              @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt             DateTime?              @updatedAt @map("updated_at") @db.Timestamp(0)
+  person                People                 @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "fk_education_person")
+
+  @@map("education_data")
+}
+
+enum HighestEducationLevel {
+  NONE
+  PRIMARY
+  MIDDLE
+  MATRIC
+  INTERMEDIATE
+  BACHELORS
+  MASTERS
+  PHD
+  RELIGIOUS_EDUCATION
+  OTHER
+}
+
+model EmploymentData {
+  id               Int               @id @default(autoincrement())
+  personId         Int               @unique @map("person_id")
+  employmentStatus EmploymentStatus? @default(UNEMPLOYED) @map("employment_status")
+  occupation       String?           @db.VarChar(200)
+  industry         String?           @db.VarChar(100)
+  income           Decimal?          @db.Decimal(12, 2)
+  employmentType   String?           @map("employment_type") @db.VarChar(50)
+  createdAt        DateTime?         @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt        DateTime?         @updatedAt @map("updated_at") @db.Timestamp(0)
+  person           People            @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "fk_employment_person")
+
+  @@map("employment_data")
+}
+
+enum EmploymentStatus {
+  EMPLOYED
+  SELF_EMPLOYED
+  UNEMPLOYED
+  STUDENT
+  HOMEMAKER
+  RETIRED
+  FARMER
+  DAILY_WAGE
+  OTHER
+}
+
+model Families {
+  id           Int       @id @default(autoincrement())
+  houseId      Int       @map("house_id")
+  familyNumber Int       @map("family_number")
+  cast         String?   @db.VarChar(425)
+  guardianId   Int?      @map("guardian_id")
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt    DateTime? @updatedAt @map("updated_at") @db.Timestamp(0)
+  house        Houses    @relation(fields: [houseId], references: [id], onUpdate: Cascade, map: "fk_families_house")
+  people       People[]
+
+  @@index([houseId], map: "fk_families_house_idx")
+  @@map("families")
+}
+
+model HouseholdFacilities {
+  id                   Int           @id @default(autoincrement())
+  houseId              Int           @map("house_id")
+  electricityAvailable Boolean?      @default(false) @map("electricity_available")
+  gasAvailable         Boolean?      @default(false) @map("gas_available")
+  internetAvailable    Boolean?      @default(false) @map("internet_available")
+  bikeAvailable        Boolean?      @default(false) @map("bike_available")
+  carAvailable         Boolean?      @default(false) @map("car_available")
+  internetType         InternetType? @map("internet_type")
+  createdAt            DateTime?     @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt            DateTime?     @updatedAt @map("updated_at") @db.Timestamp(0)
+  house                Houses        @relation(fields: [houseId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "fk_household_facilities_house")
+
+  @@index([houseId], map: "fk_household_facilities_house_idx")
+  @@map("household_facilities")
+}
+
+enum InternetType {
+  WIFI
+  G4   @map("4G")
+}
+
+model Houses {
+  id            Int                   @id @default(autoincrement())
+  houseNumber   String                @map("house_number") @db.VarChar(100)
+  parcelId      String?               @map("parcel_id") @db.VarChar(100)
+  houseType     HouseType?            @default(OTHER) @map("house_type")
+  ownershipType OwnershipType?        @default(UNKNOWN) @map("ownership_type")
+  latitude      Decimal?              @db.Decimal(10, 7)
+  longitude     Decimal?              @db.Decimal(10, 7)
+  createdAt     DateTime?             @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt     DateTime?             @updatedAt @map("updated_at") @db.Timestamp(0)
+  families      Families[]
+  facilities    HouseholdFacilities[]
+
+  @@map("houses")
+}
+
+enum HouseType {
+  PUCCA
+  SEMI_PUCCA
+  KACCHA
+  APARTMENT
+  OTHER
+}
+
+enum OwnershipType {
+  OWNED
+  RENTED
+  SHARED
+  GOVERNMENT
+  UNKNOWN
+}
+
+model Land {
+  id            Int       @id @default(autoincrement())
+  ownerPersonId Int       @map("owner_person_id")
+  area          Decimal   @db.Decimal(12, 2)
+  landUse       LandUse   @map("land_use")
+  areaUnit      AreaUnit? @map("area_unit")
+  createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt     DateTime? @updatedAt @map("updated_at") @db.Timestamp(0)
+  owner         People    @relation(fields: [ownerPersonId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "fk_land_owner")
+
+  @@index([ownerPersonId], map: "fk_land_owner")
+  @@map("land")
+}
+
+enum LandUse {
+  RESIDENTIAL
+  AGRICULTURAL
+  COMMERCIAL
+  VACANT
+}
+
+enum AreaUnit {
+  MARLA
+  KANAL
+  ACRE
+  SQ_FT
+}
+
+model People {
+  id            Int       @id @default(autoincrement())
+  familyId      Int       @map("family_id")
+  fullName      String    @map("full_name") @db.VarChar(300)
+  gender        String?   @db.VarChar(20)
+  dateOfBirth   DateTime? @map("date_of_birth") @db.Date
+  cnic          String?   @db.VarChar(50)
+  phone         String?   @db.VarChar(30)
+  maritalStatus String?   @map("marital_status") @db.VarChar(30)
+  createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt     DateTime? @updatedAt @map("updated_at") @db.Timestamp(0)
+  fatherId      Int?      @map("father_id")
+  motherId      Int?      @map("mother_id")
+  spouseId      Int?      @map("spouse_id")
+
+  family Families @relation(fields: [familyId], references: [id], onUpdate: Cascade, map: "fk_people_family")
+  father People?  @relation("FatherToChildren", fields: [fatherId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_people_father")
+  mother People?  @relation("MotherToChildren", fields: [motherId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_people_mother")
+  spouse People?  @relation("SpouseToSpouse", fields: [spouseId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_people_spouse")
+
+  childrenAsFather People[] @relation("FatherToChildren")
+  childrenAsMother People[] @relation("MotherToChildren")
+  spouseOf         People[] @relation("SpouseToSpouse")
+
+  educationData  EducationData?
+  employmentData EmploymentData?
+  lands          Land[]
+  skills         Skills[]
+  vehicles       Vehicles[]
+
+  @@index([familyId], map: "fk_people_family")
+  @@index([cnic], map: "idx_people_cnic")
+  @@index([dateOfBirth], map: "idx_people_date_of_birth")
+  @@index([phone], map: "idx_people_phone")
+  @@index([fatherId], map: "fk_people_father")
+  @@index([motherId], map: "fk_people_mother")
+  @@index([spouseId], map: "fk_people_spouse")
+  @@map("people")
+}
+
+model Skills {
+  id                 Int         @id @default(autoincrement())
+  personId           Int         @map("person_id")
+  skillName          String      @map("skill_name") @db.VarChar(100)
+  skillLevel         SkillLevel? @default(BEGINNER) @map("skill_level")
+  yearsExperience    Int?        @default(0) @map("years_experience")
+  isAvailableForWork Boolean?    @default(true) @map("is_available_for_work")
+  createdAt          DateTime?   @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt          DateTime?   @updatedAt @map("updated_at") @db.Timestamp(0)
+  person             People      @relation(fields: [personId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "fk_skills_person")
+
+  @@unique([personId, skillName], map: "uk_person_skill")
+  @@map("skills")
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+model Vehicles {
+  id                 Int         @id @default(autoincrement())
+  ownerPersonId      Int?        @map("owner_person_id")
+  vehicleType        VehicleType @map("vehicle_type")
+  registrationNumber String?     @map("registration_number") @db.VarChar(50)
+  createdAt          DateTime?   @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt          DateTime?   @updatedAt @map("updated_at") @db.Timestamp(0)
+  owner              People?     @relation(fields: [ownerPersonId], references: [id], onDelete: SetNull, onUpdate: Cascade, map: "fk_vehicles_owner")
+
+  @@index([ownerPersonId], map: "fk_vehicles_owner")
+  @@map("vehicles")
+}
+
+enum VehicleType {
+  MOTORCYCLE
+  CAR
+  TRACTOR
+  RICKSHAW
+  TRUCK
+  OTHER
+}
+
+model User {
+  id       Int     @id @default(autoincrement())
+  email    String  @db.VarChar(45)
+  password String  @db.VarChar(45)
+  token    String? @db.VarChar(405)
+
+  @@map("user")
+}

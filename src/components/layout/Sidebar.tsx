@@ -16,6 +16,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { NavLink } from 'react-router-dom';
 
 export type ActiveTab =
   | 'dashboard'
@@ -106,16 +107,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
+            const path = item.id === 'dashboard' ? '/' : `/${item.id}`;
             return (
-              <button
+              <NavLink
                 key={item.id}
                 id={`nav-tab-${item.id}`}
+                to={path}
                 onClick={() => {
-                  onSelectTab(item.id);
                   if (window.innerWidth < 1024) onToggle();
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${
+                className={({ isActive }) => `w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${
                   isActive
                     ? item.isSpecial
                       ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/30 font-semibold'
@@ -125,31 +126,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
                 }`}
               >
-                <div className="flex items-center space-x-3">
-                  <Icon
-                    className={`w-4 h-4 ${
-                      isActive
-                        ? 'text-white'
-                        : item.isSpecial
-                        ? 'text-emerald-400'
-                        : 'text-slate-400'
-                    }`}
-                  />
-                  <span>{item.label}</span>
-                </div>
+                {({ isActive }) => (
+                  <>
+                    <div className="flex items-center space-x-3">
+                      <Icon
+                        className={`w-4 h-4 ${
+                          isActive
+                            ? 'text-white'
+                            : item.isSpecial
+                            ? 'text-emerald-400'
+                            : 'text-slate-400'
+                        }`}
+                      />
+                      <span>{item.label}</span>
+                    </div>
 
-                {item.badge && (
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold tracking-tight ${
-                      isActive
-                        ? 'bg-emerald-800 text-emerald-100'
-                        : 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/50'
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
+                    {item.badge && (
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold tracking-tight ${
+                          isActive
+                            ? 'bg-emerald-800 text-emerald-100'
+                            : 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/50'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </>
                 )}
-              </button>
+              </NavLink>
             );
           })}
         </div>

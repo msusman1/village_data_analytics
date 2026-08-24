@@ -26,6 +26,10 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     throw new Error(errData.error || `HTTP Error ${res.status}: ${res.statusText}`);
   }
 
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    return {} as T;
+  }
+
   return res.json();
 }
 

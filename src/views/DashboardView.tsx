@@ -34,17 +34,71 @@ import {
   Legend,
 } from 'recharts';
 import { ActiveTab } from '../components/layout/Sidebar';
+import { useNavigate } from 'react-router-dom';
 
 const CHART_COLORS = ['#059669', '#0284c7', '#d97706', '#dc2626', '#7c3aed', '#0d9488', '#ea580c', '#64748b'];
 
 interface DashboardViewProps {
-  onNavigate: (tab: ActiveTab) => void;
-  onAskAI: (query: string) => void;
+  onNavigate?: (tab: ActiveTab) => void;
+  onAskAI?: (query: string) => void;
 }
+
+// The stats endpoint may temporarily return only the scalar counters while
+// aggregate queries are being populated. Keep chart data renderable in that
+// case instead of allowing an undefined array to crash the whole app.
+const normalizeStats = (data: Partial<VillageStats>): VillageStats => ({
+  total_population: data.total_population ?? 0,
+  total_houses: data.total_houses ?? 0,
+  total_families: data.total_families ?? 0,
+  total_guardians: data.total_guardians ?? 0,
+  children_under_5: data.children_under_5 ?? 0,
+  children_under_10: data.children_under_10 ?? 0,
+  children_under_18: data.children_under_18 ?? 0,
+  adults: data.adults ?? 0,
+  seniors_60_plus: data.seniors_60_plus ?? 0,
+  average_age: data.average_age ?? 0,
+  average_family_size: data.average_family_size ?? 0,
+  houses_with_multiple_families: data.houses_with_multiple_families ?? 0,
+  age_groups: data.age_groups?.length ? data.age_groups : [{ group: 'No data', count: 0, percentage: 0 }],
+  gender_distribution: data.gender_distribution?.length
+    ? data.gender_distribution
+    : [{ gender: 'No data', count: 0, percentage: 0 }],
+  family_size_distribution: data.family_size_distribution?.length
+    ? data.family_size_distribution
+    : [{ range: 'No data', count: 0 }],
+  population_by_house: data.population_by_house ?? [],
+  education_distribution: data.education_distribution ?? [],
+  employment_distribution: data.employment_distribution ?? [],
+  facility_stats: data.facility_stats ?? {
+    electricity_percentage: 0,
+    gas_percentage: 0,
+    internet_percentage: 0,
+    bike_ownership_percentage: 0,
+    car_ownership_percentage: 0,
+  },
+  vehicle_distribution: data.vehicle_distribution?.length
+    ? data.vehicle_distribution
+    : [{ type: 'No data', count: 0 }],
+});
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskAI }) => {
   const [stats, setStats] = useState<VillageStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  const handleNavigate = (tab: ActiveTab) => {
+    if (onNavigate) {
+      onNavigate(tab);
+    }
+    navigate(tab === 'dashboard' ? '/' : `/${tab}`);
+  };
+
+  const handleAskAI = (query: string) => {
+    if (onAskAI) {
+      onAskAI(query);
+    }
+    navigate('/ai-assistant', { state: { initialQuery: query } });
+  };
 
   useEffect(() => {
     loadStats();
@@ -54,7 +108,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskA
     try {
       setLoading(true);
       const data = await api.getStats();
-      setStats(data);
+      setStats(normalizeStats(data));
     } catch (err) {
       console.error('Failed to load dashboard statistics:', err);
     } finally {
@@ -62,7 +116,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskA
     }
   };
 
-  if (loading || !stats) {
+  if (loading) {
     return (
       <div className="space-y-6 animate-pulse">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -78,6 +132,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskA
     );
   }
 
+  if (!stats) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-slate-500">
+        <TrendingUp className="w-12 h-12 mb-4 opacity-20" />
+        <h3 className="text-lg font-medium text-slate-900">No Statistics Available</h3>
+        <p className="text-sm">We couldn't load the village demographic data at this time.</p>
+        <button 
+          onClick={() => loadStats()}
+          className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold"
+        >
+          Try Refreshing
+        </button>
+      </div>
+    );
+  }
+
   const kpiCards = [
     {
       title: 'Total Population',
@@ -85,7 +155,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskA
       subValue: 'Registered Residents',
       icon: Users,
       color: 'emerald',
-      onClick: () => onNavigate('people'),
+      onClick: () => handleNavigate('people'),
     },
     {
       title: 'Total Houses',
@@ -93,7 +163,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskA
       subValue: `${stats.total_families} Family Units`,
       icon: Home,
       color: 'blue',
-      onClick: () => onNavigate('houses'),
+      onClick: () => handleNavigate('houses'),
     },
     {
       title: 'Family Units',
@@ -101,7 +171,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskA
       subValue: `Avg ${stats.average_family_size} members/family`,
       icon: Layers,
       color: 'teal',
-      onClick: () => onNavigate('families'),
+      onClick: () => handleNavigate('families'),
     },
     {
       title: 'Guardians / Heads',
@@ -109,7 +179,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskA
       subValue: 'Household Patriarchs/Matriarchs',
       icon: UserCheck,
       color: 'amber',
-      onClick: () => onNavigate('families'),
+      onClick: () => handleNavigate('families'),
     },
     {
       title: 'Children (< 5 yrs)',
@@ -117,7 +187,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskA
       subValue: `${((stats.children_under_5 / stats.total_population) * 100).toFixed(1)}% of village`,
       icon: Baby,
       color: 'sky',
-      onClick: () => onAskAI('How many children are under 5?'),
+      onClick: () => handleAskAI('How many children are under 5?'),
     },
     {
       title: 'Children (< 10 yrs)',
@@ -125,7 +195,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskA
       subValue: `${((stats.children_under_10 / stats.total_population) * 100).toFixed(1)}% of village`,
       icon: Baby,
       color: 'indigo',
-      onClick: () => onAskAI('How many children are under 10?'),
+      onClick: () => handleAskAI('How many children are under 10?'),
     },
     {
       title: 'Youth & Minors (< 18)',
@@ -133,7 +203,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskA
       subValue: `${((stats.children_under_18 / stats.total_population) * 100).toFixed(1)}% of village`,
       icon: Activity,
       color: 'purple',
-      onClick: () => onAskAI('What percentage of the village is under 18?'),
+      onClick: () => handleAskAI('What percentage of the village is under 18?'),
     },
     {
       title: 'Adults (18+ yrs)',
@@ -141,7 +211,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskA
       subValue: `${((stats.adults / stats.total_population) * 100).toFixed(1)}% of village`,
       icon: Shield,
       color: 'emerald',
-      onClick: () => onAskAI('How many adults in the village?'),
+      onClick: () => handleAskAI('How many adults in the village?'),
     },
     {
       title: 'Senior Citizens (60+)',
@@ -149,7 +219,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskA
       subValue: `${((stats.seniors_60_plus / stats.total_population) * 100).toFixed(1)}% elderly cohort`,
       icon: HeartHandshake,
       color: 'rose',
-      onClick: () => onAskAI('Show everyone above 60.'),
+      onClick: () => handleAskAI('How many senior citizens are in the village?'),
     },
     {
       title: 'Average Village Age',
@@ -157,7 +227,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskA
       subValue: 'Computed as of Aug 24, 2026',
       icon: TrendingUp,
       color: 'blue',
-      onClick: () => onAskAI('What is the average age?'),
+      onClick: () => handleAskAI('What is the average age?'),
     },
     {
       title: 'Average Family Size',
@@ -165,7 +235,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskA
       subValue: 'Members per household',
       icon: Users,
       color: 'teal',
-      onClick: () => onAskAI('What is the average family size?'),
+      onClick: () => handleAskAI('What is the average family size?'),
     },
   ];
 
@@ -190,25 +260,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskA
 
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => onAskAI('Who is the oldest person?')}
+              onClick={() => handleAskAI('Who is the oldest person?')}
               className="px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition-colors"
             >
               Oldest Person
             </button>
             <button
-              onClick={() => onAskAI('Which family is the largest?')}
+              onClick={() => handleAskAI('Which family is the largest?')}
               className="px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition-colors"
             >
               Largest Family
             </button>
             <button
-              onClick={() => onAskAI('Show houses near house 20.')}
+              onClick={() => handleAskAI('Show houses near house 20.')}
               className="px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition-colors"
             >
               Houses Near #20
             </button>
             <button
-              onClick={() => onNavigate('ai-assistant')}
+              onClick={() => handleNavigate('ai-assistant')}
               className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white shadow-xs transition-colors flex items-center gap-1"
             >
               Open AI Analyst <ArrowUpRight className="w-3.5 h-3.5" />

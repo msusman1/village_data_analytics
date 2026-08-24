@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { api } from '../lib/api';
 import { AIQueryResponse } from '../types';
 import { AIResponseRenderer } from '../components/ai/AIResponseRenderer';
+import { useLocation } from 'react-router-dom';
 import {
   Bot,
   Send,
@@ -93,9 +94,13 @@ interface AIAssistantViewProps {
 }
 
 export const AIAssistantView: React.FC<AIAssistantViewProps> = ({
-  initialQuery,
+  initialQuery: propInitialQuery,
   onClearInitialQuery,
 }) => {
+  const location = useLocation();
+  const stateInitialQuery = location.state?.initialQuery;
+  const initialQuery = propInitialQuery || stateInitialQuery;
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -125,9 +130,11 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({
   }, [messages, loading]);
 
   useEffect(() => {
-    if (initialQuery) {
+    if (initialQuery && initialQuery !== '') {
       handleSend(initialQuery);
       if (onClearInitialQuery) onClearInitialQuery();
+      // Clear the location state so it doesn't re-run on re-renders
+      window.history.replaceState({}, document.title);
     }
   }, [initialQuery]);
 
