@@ -139,6 +139,7 @@ router.get('/families', async (req: Request, res: Response) => {
         take: l,
         include: {
           house: true,
+          people: true,
           _count: { select: { people: true } },
         },
       }),
@@ -146,13 +147,25 @@ router.get('/families', async (req: Request, res: Response) => {
     ]);
 
     res.json({
-      items,
-      pagination: {
-        total,
-        page: p,
-        limit: l,
-        totalPages: Math.ceil(total / l),
-      },
+      items: items.map((family) => {
+        const guardian = family.people.find((person) => person.id === family.guardianId);
+        return {
+          id: family.id,
+          family_number: String(family.familyNumber),
+          house_id: family.houseId,
+          house_number: family.house.houseNumber,
+          parcel_id: family.house.parcelId || '',
+          guardian_id: family.guardianId,
+          guardian_name: guardian?.fullName || '',
+          guardian_phone: guardian?.phone || '',
+          cast: family.cast || '',
+          members_count: family._count.people,
+        };
+      }),
+      total,
+      page: p,
+      limit: l,
+      totalPages: Math.ceil(total / l),
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -215,7 +228,7 @@ router.delete('/families/:id', async (req: Request, res: Response) => {
 
 router.get('/people', async (req: Request, res: Response) => {
   try {
-    const { search, gender, marital_status, family_id, page = 1, limit = 20 } = req.query;
+    const { search, gender, marital_status, family_id, minAge, maxAge, page = 1, limit = 20 } = req.query;
     const p = Number(page);
     const l = Number(limit);
 
@@ -231,6 +244,24 @@ router.get('/people', async (req: Request, res: Response) => {
     if (marital_status) where.maritalStatus = String(marital_status);
     if (family_id) where.familyId = Number(family_id);
 
+    const today = new Date();
+    const yearsAgo = (years: number) => {
+      const date = new Date(today);
+      date.setFullYear(date.getFullYear() - years);
+      return date;
+    };
+    const parsedMinAge = minAge !== undefined && minAge !== '' && Number.isFinite(Number(minAge))
+      ? Number(minAge)
+      : undefined;
+    const parsedMaxAge = maxAge !== undefined && maxAge !== '' && Number.isFinite(Number(maxAge))
+      ? Number(maxAge)
+      : undefined;
+    if (parsedMinAge !== undefined || parsedMaxAge !== undefined) {
+      where.dateOfBirth = {};
+      if (parsedMinAge !== undefined) where.dateOfBirth.lte = yearsAgo(parsedMinAge);
+      if (parsedMaxAge !== undefined) where.dateOfBirth.gte = yearsAgo(parsedMaxAge + 1);
+    }
+
     const [items, total] = await Promise.all([
       prisma.people.findMany({
         where,
@@ -243,14 +274,38 @@ router.get('/people', async (req: Request, res: Response) => {
       prisma.people.count({ where }),
     ]);
 
+    const calculateAge = (dateOfBirth: Date | null) => {
+      if (!dateOfBirth) return 0;
+      let age = today.getFullYear() - dateOfBirth.getFullYear();
+      const monthDelta = today.getMonth() - dateOfBirth.getMonth();
+      if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < dateOfBirth.getDate())) age -= 1;
+      return Math.max(0, age);
+    };
+
     res.json({
-      items,
-      pagination: {
-        total,
-        page: p,
-        limit: l,
-        totalPages: Math.ceil(total / l),
-      },
+      items: items.map((person) => ({
+        id: person.id,
+        family_id: person.familyId,
+        full_name: person.fullName,
+        gender: person.gender || 'UNKNOWN',
+        date_of_birth: person.dateOfBirth ? person.dateOfBirth.toISOString().slice(0, 10) : '',
+        cnic: person.cnic || '',
+        phone: person.phone || '',
+        marital_status: person.maritalStatus || 'SINGLE',
+        father_id: person.fatherId,
+        mother_id: person.motherId,
+        spouse_id: person.spouseId,
+        age: calculateAge(person.dateOfBirth),
+        family_number: String(person.family.familyNumber),
+        house_id: person.family.houseId,
+        house_number: person.family.house.houseNumber,
+        parcel_id: person.family.house.parcelId || '',
+        is_guardian: person.family.guardianId === person.id,
+      })),
+      total,
+      page: p,
+      limit: l,
+      totalPages: Math.ceil(total / l),
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -320,18 +375,42 @@ router.delete('/people/:id', async (req: Request, res: Response) => {
 
 router.get('/education', async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, search } = req.query;
     const p = Number(page);
     const l = Number(limit);
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { educationStatus: { contains: String(search) } },
+        { highestEducationLevel: { equals: String(search) } },
+        { person: { fullName: { contains: String(search) } } },
+      ];
+    }
     const [items, total] = await Promise.all([
       prisma.educationData.findMany({
+        where,
         skip: (p - 1) * l,
         take: l,
         include: { person: true },
       }),
-      prisma.educationData.count(),
+      prisma.educationData.count({ where }),
     ]);
-    res.json({ items, total, page: p, limit: l });
+    res.json({
+      items: items.map((item) => ({
+        id: item.id,
+        person_id: item.personId,
+        person_name: item.person.fullName,
+        level: item.highestEducationLevel || 'NONE',
+        field_of_study: item.educationStatus || '',
+        institute: '',
+        passing_year: null,
+        is_currently_studying: item.isCurrentlyStudying || false,
+      })),
+      total,
+      page: p,
+      limit: l,
+      totalPages: Math.ceil(total / l),
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -373,18 +452,41 @@ router.delete('/education/:id', async (req: Request, res: Response) => {
 
 router.get('/employment', async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, search } = req.query;
     const p = Number(page);
     const l = Number(limit);
+    const where: any = search ? {
+      OR: [
+        { occupation: { contains: String(search) } },
+        { industry: { contains: String(search) } },
+        { employmentType: { contains: String(search) } },
+        { person: { fullName: { contains: String(search) } } },
+      ],
+    } : undefined;
     const [items, total] = await Promise.all([
       prisma.employmentData.findMany({
+        where,
         skip: (p - 1) * l,
         take: l,
         include: { person: true },
       }),
-      prisma.employmentData.count(),
+      prisma.employmentData.count({ where }),
     ]);
-    res.json({ items, total, page: p, limit: l });
+    res.json({
+      items: items.map((item) => ({
+        id: item.id,
+        person_id: item.personId,
+        person_name: item.person.fullName,
+        occupation: item.occupation || '',
+        status: item.employmentStatus || 'UNEMPLOYED',
+        employer_or_business_name: item.industry || item.employmentType || '',
+        monthly_income: item.income == null ? null : Number(item.income),
+      })),
+      total,
+      page: p,
+      limit: l,
+      totalPages: Math.ceil(total / l),
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -426,18 +528,38 @@ router.delete('/employment/:id', async (req: Request, res: Response) => {
 
 router.get('/skills', async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, search } = req.query;
     const p = Number(page);
     const l = Number(limit);
+    const where: any = search ? {
+      OR: [
+        { skillName: { contains: String(search) } },
+        { person: { fullName: { contains: String(search) } } },
+      ],
+    } : undefined;
     const [items, total] = await Promise.all([
       prisma.skills.findMany({
+        where,
         skip: (p - 1) * l,
         take: l,
         include: { person: true },
       }),
-      prisma.skills.count(),
+      prisma.skills.count({ where }),
     ]);
-    res.json({ items, total, page: p, limit: l });
+    res.json({
+      items: items.map((item) => ({
+        id: item.id,
+        person_id: item.personId,
+        person_name: item.person.fullName,
+        skill_name: item.skillName,
+        proficiency_level: item.skillLevel || 'BEGINNER',
+        years_experience: item.yearsExperience || 0,
+      })),
+      total,
+      page: p,
+      limit: l,
+      totalPages: Math.ceil(total / l),
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -479,18 +601,39 @@ router.delete('/skills/:id', async (req: Request, res: Response) => {
 
 router.get('/land', async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, search } = req.query;
     const p = Number(page);
     const l = Number(limit);
+    const where: any = search ? {
+      OR: [
+        { landUse: { equals: String(search) } },
+        { owner: { fullName: { contains: String(search) } } },
+      ],
+    } : undefined;
     const [items, total] = await Promise.all([
       prisma.land.findMany({
+        where,
         skip: (p - 1) * l,
         take: l,
         include: { owner: true },
       }),
-      prisma.land.count(),
+      prisma.land.count({ where }),
     ]);
-    res.json({ items, total, page: p, limit: l });
+    res.json({
+      items: items.map((item) => ({
+        id: item.id,
+        owner_person_id: item.ownerPersonId,
+        owner_name: item.owner.fullName,
+        parcel_id: '',
+        area_acres: Number(item.area),
+        land_type: item.landUse,
+        location_description: item.areaUnit || '',
+      })),
+      total,
+      page: p,
+      limit: l,
+      totalPages: Math.ceil(total / l),
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -532,18 +675,40 @@ router.delete('/land/:id', async (req: Request, res: Response) => {
 
 router.get('/vehicles', async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, search } = req.query;
     const p = Number(page);
     const l = Number(limit);
+    const where: any = search ? {
+      OR: [
+        { vehicleType: { equals: String(search) } },
+        { registrationNumber: { contains: String(search) } },
+        { owner: { fullName: { contains: String(search) } } },
+      ],
+    } : undefined;
     const [items, total] = await Promise.all([
       prisma.vehicles.findMany({
+        where,
         skip: (p - 1) * l,
         take: l,
         include: { owner: true },
       }),
-      prisma.vehicles.count(),
+      prisma.vehicles.count({ where }),
     ]);
-    res.json({ items, total, page: p, limit: l });
+    res.json({
+      items: items.map((item) => ({
+        id: item.id,
+        owner_person_id: item.ownerPersonId,
+        owner_name: item.owner?.fullName || 'Unassigned',
+        vehicle_type: item.vehicleType,
+        make_model: '',
+        registration_number: item.registrationNumber || '',
+        year: null,
+      })),
+      total,
+      page: p,
+      limit: l,
+      totalPages: Math.ceil(total / l),
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -596,7 +761,23 @@ router.get('/household-facilities', async (req: Request, res: Response) => {
       }),
       prisma.householdFacilities.count(),
     ]);
-    res.json({ items, total, page: p, limit: l });
+    res.json({
+      items: items.map((item) => ({
+        id: item.id,
+        house_id: item.houseId,
+        house_number: item.house.houseNumber,
+        has_electricity: item.electricityAvailable || false,
+        has_gas: item.gasAvailable || false,
+        has_internet: item.internetAvailable || false,
+        internet_type: item.internetType || 'NONE',
+        has_bike: item.bikeAvailable || false,
+        has_car: item.carAvailable || false,
+      })),
+      total,
+      page: p,
+      limit: l,
+      totalPages: Math.ceil(total / l),
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

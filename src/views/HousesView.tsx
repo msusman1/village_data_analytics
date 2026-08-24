@@ -193,7 +193,6 @@ export const HousesView: React.FC = () => {
                 <th className="px-4 py-3">Construction Type</th>
                 <th className="px-4 py-3">Ownership</th>
                 <th className="px-4 py-3">Families</th>
-                <th className="px-4 py-3">Population</th>
                 <th className="px-4 py-3">GPS Coordinates</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
@@ -239,9 +238,7 @@ export const HousesView: React.FC = () => {
                       <span className="font-semibold text-slate-900">{h.families_count}</span>{' '}
                       unit{h.families_count === 1 ? '' : 's'}
                     </td>
-                    <td className="px-4 py-3 font-semibold text-slate-900">
-                      {h.population || 0} residents
-                    </td>
+
                     <td className="px-4 py-3 font-mono text-[11px] text-slate-500">
                       {h.latitude.toFixed(4)}, {h.longitude.toFixed(4)}
                     </td>
@@ -299,12 +296,6 @@ export const HousesView: React.FC = () => {
           <div className="space-y-6">
             {/* Quick Metrics */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <span className="text-[11px] text-slate-500 uppercase font-semibold">Population</span>
-                <p className="text-lg font-bold text-slate-900 mt-0.5">
-                  {selectedHouse.population || 0} People
-                </p>
-              </div>
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
                 <span className="text-[11px] text-slate-500 uppercase font-semibold">Families</span>
                 <p className="text-lg font-bold text-slate-900 mt-0.5">
