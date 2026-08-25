@@ -67,13 +67,61 @@ router.get('/houses/:id', async (req: Request, res: Response) => {
         facilities: true,
         families: {
           include: {
+            people: true,
             _count: { select: { people: true } },
           },
         },
       },
     });
+
     if (!item) return res.status(404).json({ error: 'House not found' });
-    res.json(item);
+
+    // Transform to match frontend House type
+    const transformed = {
+      id: item.id,
+      house_number: item.houseNumber,
+      parcel_id: item.parcelId || '',
+      house_type: item.houseType,
+      ownership_type: item.ownershipType,
+      latitude: item.latitude == null ? null : Number(item.latitude),
+      longitude: item.longitude == null ? null : Number(item.longitude),
+      facilities: item.facilities.length > 0 ? {
+        id: item.facilities[0].id,
+        house_id: item.facilities[0].houseId,
+        has_electricity: item.facilities[0].electricityAvailable,
+        has_gas: item.facilities[0].gasAvailable,
+        has_internet: item.facilities[0].internetAvailable,
+        internet_type: item.facilities[0].internetType,
+        has_bike: item.facilities[0].bikeAvailable,
+        has_car: item.facilities[0].carAvailable,
+      } : null,
+      families: item.families.map(f => {
+        const guardian = f.people.find(p => p.id === f.guardianId);
+        return {
+          id: f.id,
+          family_number: String(f.familyNumber),
+          house_id: f.houseId,
+          guardian_id: f.guardianId,
+          guardian_name: guardian?.fullName || '',
+          guardian_phone: guardian?.phone || '',
+          cast: f.cast || '',
+          members_count: f._count.people,
+          members: f.people.map(p => ({
+            id: p.id,
+            family_id: p.familyId,
+            full_name: p.fullName,
+            gender: p.gender,
+            date_of_birth: p.dateOfBirth?.toISOString().split('T')[0] || '',
+            cnic: p.cnic,
+            phone: p.phone,
+            marital_status: p.maritalStatus,
+          })),
+        };
+      }),
+      families_count: item.families.length,
+    };
+
+    res.json(transformed);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -81,8 +129,16 @@ router.get('/houses/:id', async (req: Request, res: Response) => {
 
 router.post('/houses', async (req: Request, res: Response) => {
   try {
+    const { house_number, parcel_id, house_type, ownership_type, latitude, longitude } = req.body;
     const item = await prisma.houses.create({
-      data: req.body,
+      data: {
+        houseNumber: house_number,
+        parcelId: parcel_id,
+        houseType: house_type,
+        ownershipType: ownership_type,
+        latitude,
+        longitude,
+      },
     });
     res.status(201).json(item);
   } catch (error: any) {
@@ -92,9 +148,17 @@ router.post('/houses', async (req: Request, res: Response) => {
 
 router.put('/houses/:id', async (req: Request, res: Response) => {
   try {
+    const { house_number, parcel_id, house_type, ownership_type, latitude, longitude } = req.body;
     const item = await prisma.houses.update({
       where: { id: Number(req.params.id) },
-      data: req.body,
+      data: {
+        houseNumber: house_number,
+        parcelId: parcel_id,
+        houseType: house_type,
+        ownershipType: ownership_type,
+        latitude,
+        longitude,
+      },
     });
     res.json(item);
   } catch (error: any) {
@@ -125,8 +189,12 @@ router.get('/families', async (req: Request, res: Response) => {
 
     const where: any = {};
     if (search) {
+      const searchStr = String(search);
       where.OR = [
-        { cast: { contains: String(search) } },
+        { familyNumber: { equals: isNaN(Number(searchStr)) ? -1 : Number(searchStr) } },
+        { people: { some: { fullName: { contains: searchStr } } } },
+        { house: { houseNumber: { contains: searchStr } } },
+        { cast: { contains: searchStr } },
       ];
     }
     if (house_id) where.houseId = Number(house_id);
@@ -179,10 +247,34 @@ router.get('/families/:id', async (req: Request, res: Response) => {
       include: {
         house: true,
         people: true,
+        _count: { select: { people: true } },
       },
     });
     if (!item) return res.status(404).json({ error: 'Family not found' });
-    res.json(item);
+
+    const guardian = item.people.find((person) => person.id === item.guardianId);
+    res.json({
+      id: item.id,
+      family_number: String(item.familyNumber),
+      house_id: item.houseId,
+      house_number: item.house.houseNumber,
+      parcel_id: item.house.parcelId || '',
+      guardian_id: item.guardianId,
+      guardian_name: guardian?.fullName || '',
+      guardian_phone: guardian?.phone || '',
+      cast: item.cast || '',
+      members_count: item._count.people,
+      members: item.people.map(p => ({
+        id: p.id,
+        family_id: p.familyId,
+        full_name: p.fullName,
+        gender: p.gender,
+        date_of_birth: p.dateOfBirth?.toISOString().split('T')[0] || '',
+        cnic: p.cnic,
+        phone: p.phone,
+        marital_status: p.maritalStatus,
+      })),
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -190,8 +282,14 @@ router.get('/families/:id', async (req: Request, res: Response) => {
 
 router.post('/families', async (req: Request, res: Response) => {
   try {
+    const { family_number, house_id, guardian_id, cast } = req.body;
     const item = await prisma.families.create({
-      data: req.body,
+      data: {
+        familyNumber: Number(family_number),
+        houseId: Number(house_id),
+        guardianId: guardian_id ? Number(guardian_id) : null,
+        cast,
+      },
     });
     res.status(201).json(item);
   } catch (error: any) {
@@ -201,9 +299,15 @@ router.post('/families', async (req: Request, res: Response) => {
 
 router.put('/families/:id', async (req: Request, res: Response) => {
   try {
+    const { family_number, house_id, guardian_id, cast } = req.body;
     const item = await prisma.families.update({
       where: { id: Number(req.params.id) },
-      data: req.body,
+      data: {
+        familyNumber: family_number ? Number(family_number) : undefined,
+        houseId: house_id ? Number(house_id) : undefined,
+        guardianId: guardian_id !== undefined ? (guardian_id ? Number(guardian_id) : null) : undefined,
+        cast,
+      },
     });
     res.json(item);
   } catch (error: any) {
@@ -329,7 +433,68 @@ router.get('/people/:id', async (req: Request, res: Response) => {
       },
     });
     if (!item) return res.status(404).json({ error: 'Person not found' });
-    res.json(item);
+
+    const today = new Date();
+    const calculateAge = (dateOfBirth: Date | null) => {
+      if (!dateOfBirth) return 0;
+      let age = today.getFullYear() - dateOfBirth.getFullYear();
+      const monthDelta = today.getMonth() - dateOfBirth.getMonth();
+      if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < dateOfBirth.getDate())) age -= 1;
+      return Math.max(0, age);
+    };
+
+    res.json({
+      id: item.id,
+      family_id: item.familyId,
+      full_name: item.fullName,
+      gender: item.gender || 'UNKNOWN',
+      date_of_birth: item.dateOfBirth ? item.dateOfBirth.toISOString().slice(0, 10) : '',
+      cnic: item.cnic || '',
+      phone: item.phone || '',
+      marital_status: item.maritalStatus || 'SINGLE',
+      father_id: item.fatherId,
+      mother_id: item.motherId,
+      spouse_id: item.spouseId,
+      age: calculateAge(item.dateOfBirth),
+      family_number: String(item.family.familyNumber),
+      house_id: item.family.houseId,
+      house_number: item.family.house.houseNumber,
+      parcel_id: item.family.house.parcelId || '',
+      father_name: item.father?.fullName || '',
+      mother_name: item.mother?.fullName || '',
+      spouse_name: item.spouse?.fullName || '',
+      education: item.educationData ? [{
+        id: item.educationData.id,
+        person_id: item.educationData.personId,
+        level: item.educationData.highestEducationLevel,
+        status: item.educationData.educationStatus,
+      }] : [],
+      employment: item.employmentData ? [{
+        id: item.employmentData.id,
+        person_id: item.employmentData.personId,
+        status: item.employmentData.employmentStatus,
+        occupation: item.employmentData.occupation,
+        income: item.employmentData.income,
+      }] : [],
+      skills: item.skills.map(s => ({
+        id: s.id,
+        person_id: s.personId,
+        skill_name: s.skillName,
+        proficiency_level: s.skillLevel,
+      })),
+      vehicles: item.vehicles.map(v => ({
+        id: v.id,
+        owner_person_id: v.ownerPersonId,
+        vehicle_type: v.vehicleType,
+        registration_number: v.registrationNumber,
+      })),
+      land: item.lands.map(l => ({
+        id: l.id,
+        owner_person_id: l.ownerPersonId,
+        area_acres: Number(l.area),
+        land_type: l.landUse,
+      })),
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -337,8 +502,20 @@ router.get('/people/:id', async (req: Request, res: Response) => {
 
 router.post('/people', async (req: Request, res: Response) => {
   try {
+    const { family_id, full_name, gender, date_of_birth, cnic, phone, marital_status, father_id, mother_id, spouse_id } = req.body;
     const item = await prisma.people.create({
-      data: req.body,
+      data: {
+        familyId: Number(family_id),
+        fullName: full_name,
+        gender,
+        dateOfBirth: date_of_birth ? new Date(date_of_birth) : null,
+        cnic,
+        phone,
+        maritalStatus: marital_status,
+        fatherId: father_id ? Number(father_id) : null,
+        motherId: mother_id ? Number(mother_id) : null,
+        spouseId: spouse_id ? Number(spouse_id) : null,
+      },
     });
     res.status(201).json(item);
   } catch (error: any) {
@@ -348,9 +525,21 @@ router.post('/people', async (req: Request, res: Response) => {
 
 router.put('/people/:id', async (req: Request, res: Response) => {
   try {
+    const { family_id, full_name, gender, date_of_birth, cnic, phone, marital_status, father_id, mother_id, spouse_id } = req.body;
     const item = await prisma.people.update({
       where: { id: Number(req.params.id) },
-      data: req.body,
+      data: {
+        familyId: family_id ? Number(family_id) : undefined,
+        fullName: full_name,
+        gender,
+        dateOfBirth: date_of_birth ? new Date(date_of_birth) : undefined,
+        cnic,
+        phone,
+        maritalStatus: marital_status,
+        fatherId: father_id !== undefined ? (father_id ? Number(father_id) : null) : undefined,
+        motherId: mother_id !== undefined ? (mother_id ? Number(mother_id) : null) : undefined,
+        spouseId: spouse_id !== undefined ? (spouse_id ? Number(spouse_id) : null) : undefined,
+      },
     });
     res.json(item);
   } catch (error: any) {
