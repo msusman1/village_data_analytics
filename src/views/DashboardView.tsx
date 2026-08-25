@@ -1,40 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { api } from '../lib/api';
-import { VillageStats } from '../types';
+import React, {useEffect, useState} from 'react';
+import {api} from '../lib/api';
+import {VillageStats} from '../types';
 import {
-  Users,
-  Home,
-  UserCheck,
-  Award,
-  Baby,
-  Activity,
-  HeartHandshake,
-  TrendingUp,
-  Bot,
-  Sparkles,
-  ArrowUpRight,
-  Shield,
-  Layers,
-  GraduationCap,
-  Briefcase,
-  Wrench,
-  Car,
-  Compass,
+    Activity,
+    ArrowUpRight,
+    Baby,
+    Bot,
+    HeartHandshake,
+    Home,
+    Layers,
+    Shield,
+    TrendingUp,
+    UserCheck,
+    Users,
 } from 'lucide-react';
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Cell,
-  PieChart,
-  Pie,
-  Legend,
-} from 'recharts';
-import { ActiveTab } from '../components/layout/Sidebar';
-import { useNavigate } from 'react-router-dom';
+import {Bar, BarChart, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,} from 'recharts';
+import {ActiveTab} from '../components/layout/Sidebar';
+import {useNavigate} from 'react-router-dom';
 
 const CHART_COLORS = ['#059669', '#0284c7', '#d97706', '#dc2626', '#7c3aed', '#0d9488', '#ea580c', '#64748b'];
 
@@ -59,10 +41,23 @@ const normalizeStats = (data: Partial<VillageStats>): VillageStats => ({
   average_age: data.average_age ?? 0,
   average_family_size: data.average_family_size ?? 0,
   houses_with_multiple_families: data.houses_with_multiple_families ?? 0,
-  age_groups: data.age_groups?.length ? data.age_groups : [{ group: 'No data', count: 0, percentage: 0 }],
+  age_groups: data.age_groups?.length
+    ? data.age_groups
+    : [
+        { group: '0-5', count: 0, percentage: 0 },
+        { group: '6-12', count: 0, percentage: 0 },
+        { group: '13-18', count: 0, percentage: 0 },
+        { group: '19-35', count: 0, percentage: 0 },
+        { group: '36-50', count: 0, percentage: 0 },
+        { group: '51-60', count: 0, percentage: 0 },
+        { group: '60+', count: 0, percentage: 0 },
+      ],
   gender_distribution: data.gender_distribution?.length
     ? data.gender_distribution
-    : [{ gender: 'No data', count: 0, percentage: 0 }],
+    : [
+        { gender: 'Male', count: 0, percentage: 0 },
+        { gender: 'Female', count: 0, percentage: 0 }
+      ],
   family_size_distribution: data.family_size_distribution?.length
     ? data.family_size_distribution
     : [{ range: 'No data', count: 0 }],
@@ -238,6 +233,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAskA
       onClick: () => handleAskAI('What is the average family size?'),
     },
   ];
+
+  const genderData = stats.gender_distribution.filter(d => d.gender !== 'No data');
+  const hasGenderData = genderData.length > 0 && genderData.some(d => d.count > 0);
 
   return (
     <div className="space-y-6">
