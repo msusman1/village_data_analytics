@@ -123,10 +123,12 @@ Columns:
   OWNED, RENTED, SHARED, GOVERNMENT, UNKNOWN
 * latitude DECIMAL(10,7) NULL
 * longitude DECIMAL(10,7) NULL
+* owner_id INT NULL -> people.id
 
 Rules:
 
 * house_number is the human-facing identifier.
+* A owner of the house is a person referenced by houses.owner_id.
 * Example: "house 20" means houses.house_number = '20'.
 
 ### household_facilities
@@ -262,6 +264,7 @@ NEVER query, join, expose, or use the \`user\` table.
 ==================================================
 RELATIONSHIP MAP
 ================
+houes.owner_id -> people.id
 
 people.family_id -> families.id
 

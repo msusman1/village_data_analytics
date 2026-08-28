@@ -1,7 +1,7 @@
 import {execute} from './gemini';
 import {executeSQL} from './executor';
 import {buildAnswer, buildVisualization, normalizeRows} from './response-assembler';
-import {AIQueryResponse} from "@/server/ai/types.ts";
+import {AIQueryResponse, TextToSqlResult} from "@/server/ai/types.ts";
 
 
 export async function answerQuery(userQuery: string): Promise<AIQueryResponse> {
@@ -10,6 +10,7 @@ export async function answerQuery(userQuery: string): Promise<AIQueryResponse> {
     try {
         // 1. One structured LLM call
         const textToSqlResult = await execute(userQuery);
+        console.log("textToSqlResult: ", textToSqlResult);
 
         // 2. Execute safely
         const {rows, executionMs} = await executeSQL(textToSqlResult.sql);

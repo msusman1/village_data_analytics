@@ -3,16 +3,53 @@ import {AIVisualization, TextToSqlResult} from "@/server/ai/types.ts";
 const firstRowKeys = (rows: any[]) => Object.keys(rows[0] || {});
 
 export function normalizeValue(value: any): any {
-    if (typeof value === 'bigint') return Number.isSafeInteger(Number(value)) ? Number(value) : value.toString();
-    if (value instanceof Date) return value.toISOString();
-    if (Array.isArray(value)) return value.map(normalizeValue);
-    if (value && typeof value === 'object') {
-        return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, normalizeValue(item)]));
+    // 1. Handle primitive null / undefined early
+    if (value === null || value === undefined) return value;
+
+    // 2. BigInt: keep precision if unsafe integer
+    if (typeof value === 'bigint') {
+        const num = Number(value);
+        return Number.isSafeInteger(num) ? num : value.toString();
     }
+
+    // 3. Date handling
+    if (value instanceof Date) {
+        return value.toISOString();
+    }
+
+    // 4. Prisma Decimal / Decimal.js detection (Duck typing + Class name check)
+    const isDecimal =
+        (value && typeof value === 'object' && value.constructor?.name === 'Decimal') ||
+        (value && typeof value === 'object' && 'd' in value && 's' in value && Array.isArray(value.d));
+
+    if (isDecimal) {
+        const stringVal = value.toString();
+        const numVal = Number(stringVal);
+        // Ensure decimal fits safely into JS floating-point number
+        return Number.isFinite(numVal) && Number.isSafeInteger(Math.floor(numVal))
+            ? numVal
+            : stringVal;
+    }
+
+    // 5. Arrays
+    if (Array.isArray(value)) {
+        return value.map(normalizeValue);
+    }
+
+    // 6. Plain Objects
+    if (typeof value === 'object' && value.constructor === Object) {
+        const normalized: Record<string, any> = {};
+        for (const [key, item] of Object.entries(value)) {
+            normalized[key] = normalizeValue(item);
+        }
+        return normalized;
+    }
+
     return value;
 }
 
 export function normalizeRows(rows: any[]): Record<string, any>[] {
+    if (!Array.isArray(rows)) return [];
     return rows.map((row) => normalizeValue(row));
 }
 

@@ -316,7 +316,7 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({
                         <div
                             className="bg-white border border-slate-200 rounded-2xl rounded-tl-none p-4 shadow-xs text-xs text-slate-500 flex items-center space-x-2">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"/>
-                            <span>Querying Lakra Khurd demographic records & synthesizing answer...</span>
+                            <span>Querying records & synthesizing answer...</span>
                         </div>
                     </div>
                 )}
