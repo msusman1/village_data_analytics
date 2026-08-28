@@ -12,6 +12,7 @@ import {
 import apiRoutes from './server/routes/api.js';
 import {prisma} from './server/db/prisma.js';
 import {VillageStats} from "@/src/types";
+import {answerQuery} from "@/server/ai/answer-query.ts";
 
 async function startServer() {
     const app = express();
@@ -664,9 +665,8 @@ async function startServer() {
                 res.status(400).json({error: 'Valid natural language query string required'});
                 return;
             }
-
-
-            res.json({"data": 333});
+            const result = await answerQuery(query.trim());
+            res.json(result);
         } catch (error) {
             console.error('AI Query handler error:', error);
             res.status(500).json({

@@ -91,10 +91,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <div>
             <h1 className="font-semibold text-sm text-white tracking-tight leading-tight">
-              Lakra Khurd
+              AI-LK
             </h1>
             <p className="text-[11px] text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
-              <ShieldCheck className="w-3 h-3" /> Gov. Demographic DB
+              <ShieldCheck className="w-3 h-3" /> Data in-sights
             </p>
           </div>
         </div>

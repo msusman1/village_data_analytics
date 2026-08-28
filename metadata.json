@@ -1,6 +1,6 @@
 {
   "name": "Village Data Management & AI Analytics Dashboard",
-  "description": "Enterprise-grade village demographic management and natural-language AI analytics platform for Lakra Khurd village data.",
+  "description": "Enterprise-grade village demographic management and natural-language AI analytics platform for LK data Insits.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

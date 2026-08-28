@@ -15,8 +15,8 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const titles: Record<ActiveTab, { title: string; desc: string }> = {
     dashboard: {
-      title: 'Village Demographics Dashboard',
-      desc: 'Live statistical telemetry, age cohorts, and administrative metrics for Lakra Khurd',
+      title: 'Demographics Dashboard',
+      desc: 'Live statistical telemetry, age cohorts, and administrative metrics',
     },
     'ai-assistant': {
       title: 'AI Natural Language Analyst',
