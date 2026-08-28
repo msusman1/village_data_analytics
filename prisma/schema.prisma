@@ -99,7 +99,7 @@ enum InternetType {
 
 model Houses {
   id            Int                   @id @default(autoincrement())
-  houseNumber   String                @map("house_number") @db.VarChar(100)
+  houseNumber   Int                   @map("house_number")
   parcelId      String?               @map("parcel_id") @db.VarChar(100)
   houseType     HouseType?            @default(OTHER) @map("house_type")
   ownershipType OwnershipType?        @default(UNKNOWN) @map("ownership_type")

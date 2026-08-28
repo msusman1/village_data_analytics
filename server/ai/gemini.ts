@@ -47,7 +47,7 @@ export async function execute(userQuery: string): Promise<TextToSqlResult> {
     if (!ai) throw new Error('GEMINI_API_KEY is not configured');
 
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',          // or gemini-2.0-flash
+        model: 'gemini-3.5-flash-lite',          // or gemini-2.0-flash
         contents: [
             {
                 role: 'user',

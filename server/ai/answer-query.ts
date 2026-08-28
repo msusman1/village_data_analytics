@@ -24,8 +24,7 @@ export async function answerQuery(userQuery: string): Promise<AIQueryResponse> {
         return {
             success: true,
             answer: answer,
-            explanation: textToSqlResult.explanation,
-            sql: textToSqlResult.sql,                     // remove in production if you want
+            // remove in production if you want
             data: normalizedRows,
             visualization: visualization,
             followupQuestions: followupQuestions,
@@ -38,8 +37,6 @@ export async function answerQuery(userQuery: string): Promise<AIQueryResponse> {
         return {
             success: false,
             answer: 'Sorry, I could not process that question.',
-            explanation: '',
-            sql: '',
             data: [],
             visualization: {type: 'PLAIN_TEXT', title: 'Error', description: err.message || 'Unknown error'},
             followupQuestions: [],

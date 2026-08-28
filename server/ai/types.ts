@@ -21,8 +21,6 @@ export interface AIQueryResponse {
     answer: string;
     success: boolean;
     visualization: AIVisualization | null;
-    explanation: string;
-    sql: string;
     data: any[];                       // rows returned by SQL
     followupQuestions: string[];
     meta: {

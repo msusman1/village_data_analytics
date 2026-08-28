@@ -103,9 +103,7 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({
                 success: true,
                 answer:
                     'Hello! I am your AI Data Analyst for **Lakra Khurd**. You can ask me any question about village demographics, age groups, families, guardians, houses, or geospatial proximity.',
-                explanation: '',
                 data: [],
-                sql: "",
                 visualization: null,
                 followupQuestions: [
                     'Who is the oldest person?',
@@ -184,8 +182,6 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({
                 response: {
                     success: true,
                     answer: 'Chat history reset. How can I help you analyze Lakra Khurd village data?',
-                    explanation: '',
-                    sql: "",
                     data: [],
                     visualization: null,
                     followupQuestions: [
