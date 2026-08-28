@@ -1,26 +1,11 @@
-import React, {useState, useEffect} from 'react';
+import React, {useEffect, useState} from 'react';
 import {api} from '../lib/api';
-import {House, HouseholdFacilities, HouseType, OwnershipType} from '../types';
+import {House, HouseType, OwnershipType, Person} from '../types';
 import {Badge} from '../components/ui/Badge';
 import {Modal} from '../components/ui/Modal';
 import {ConfirmDialog} from '../components/ui/ConfirmDialog';
 import {Pagination} from '../components/ui/Pagination';
-import {
-    Home,
-    Plus,
-    Search,
-    Edit2,
-    Trash2,
-    Eye,
-    MapPin,
-    Users,
-    Building2,
-    Zap,
-    Droplets,
-    Flame,
-    Sun,
-    ShieldAlert,
-} from 'lucide-react';
+import {Building2, Droplets, Edit2, Eye, Flame, Home, Plus, Search, Sun, Trash2, Users, Zap,} from 'lucide-react';
 
 export const HousesView: React.FC = () => {
     const [houses, setHouses] = useState<House[]>([]);
@@ -30,6 +15,7 @@ export const HousesView: React.FC = () => {
     const [search, setSearch] = useState('');
     const [houseTypeFilter, setHouseTypeFilter] = useState('');
     const [loading, setLoading] = useState(true);
+    const [owners, setOwners] = useState<Person[]>([]);
 
     // Modals state
     const [selectedHouse, setSelectedHouse] = useState<House | null>(null);
@@ -46,6 +32,7 @@ export const HousesView: React.FC = () => {
         ownership_type: OwnershipType;
         latitude: number;
         longitude: number;
+        owner_id: number | null;
     }>({
         house_number: '',
         parcel_id: '',
@@ -53,11 +40,18 @@ export const HousesView: React.FC = () => {
         ownership_type: 'OWNED',
         latitude: 32.4945,
         longitude: 74.5228,
+        owner_id: null,
     });
 
     useEffect(() => {
         loadHouses();
     }, [page, search, houseTypeFilter]);
+
+    useEffect(() => {
+        api.getPeople({ limit: 1000 }).then((res) => setOwners(res.items)).catch((err) =>
+            console.error('Failed to load house owners:', err)
+        );
+    }, []);
 
     const loadHouses = async () => {
         try {
@@ -87,13 +81,13 @@ export const HousesView: React.FC = () => {
             ownership_type: 'OWNED',
             latitude: 32.4945,
             longitude: 74.5228,
+            owner_id: null,
         });
         setIsFormModalOpen(true);
     };
 
     const handleOpenEdit = (h: House) => {
         setEditingHouseId(h.id);
-        console.log("selected house: ", h.house_number, " ", h.parcel_id, " ", h.house_type, " ", h.ownership_type, " ", h.latitude, " ", h.longitude, "")
         setFormData({
             house_number: h.house_number,
             parcel_id: h.parcel_id,
@@ -101,6 +95,7 @@ export const HousesView: React.FC = () => {
             ownership_type: h.ownership_type,
             latitude: h.latitude,
             longitude: h.longitude,
+            owner_id: h.owner_id,
         });
         setIsFormModalOpen(true);
     };
@@ -194,6 +189,7 @@ export const HousesView: React.FC = () => {
                             <th className="px-4 py-3">Parcel ID</th>
                             <th className="px-4 py-3">Construction Type</th>
                             <th className="px-4 py-3">Ownership</th>
+                            <th className="px-4 py-3">Owner</th>
                             <th className="px-4 py-3">Families</th>
                             <th className="px-4 py-3">GPS Coordinates</th>
                             <th className="px-4 py-3 text-right">Actions</th>
@@ -202,13 +198,13 @@ export const HousesView: React.FC = () => {
                         <tbody className="divide-y divide-slate-100">
                         {loading ? (
                             <tr>
-                                <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                                <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                                     Loading houses database...
                                 </td>
                             </tr>
                         ) : houses.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                                <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                                     No houses match your search criteria.
                                 </td>
                             </tr>
@@ -236,6 +232,7 @@ export const HousesView: React.FC = () => {
                                     <td className="px-4 py-3">
                                         <span className="capitalize">{h.ownership_type.toLowerCase()}</span>
                                     </td>
+                                    <td className="px-4 py-3">{h.owner_name || 'Unassigned'}</td>
                                     <td className="px-4 py-3">
                                         <span className="font-semibold text-slate-900">{h.families_count}</span>{' '}
                                         unit{h.families_count === 1 ? '' : 's'}
@@ -302,6 +299,12 @@ export const HousesView: React.FC = () => {
                                 <span className="text-[11px] text-slate-500 uppercase font-semibold">Families</span>
                                 <p className="text-lg font-bold text-slate-900 mt-0.5">
                                     {selectedHouse.families_count || 1} Units
+                                </p>
+                            </div>
+                            <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                <span className="text-[11px] text-slate-500 uppercase font-semibold">Owner</span>
+                                <p className="text-sm font-bold text-slate-900 mt-1">
+                                    {selectedHouse.owner_name || 'Unassigned'}
                                 </p>
                             </div>
                             <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
@@ -411,6 +414,20 @@ export const HousesView: React.FC = () => {
                                 className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
                             />
                         </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">House Owner</label>
+                        <select
+                            value={formData.owner_id ?? ''}
+                            onChange={(e) => setFormData({...formData, owner_id: e.target.value ? Number(e.target.value) : null})}
+                            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-hidden bg-white"
+                        >
+                            <option value="">Unassigned</option>
+                            {owners.map((person) => (
+                                <option key={person.id} value={person.id}>{person.full_name}</option>
+                            ))}
+                        </select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">

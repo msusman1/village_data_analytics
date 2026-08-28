@@ -33,6 +33,8 @@ export interface House {
     parcel_id: string;
     house_type: HouseType;
     ownership_type: OwnershipType;
+    owner_id: number | null;
+    owner_name?: string;
     latitude: number;
     longitude: number;
     created_at?: string;

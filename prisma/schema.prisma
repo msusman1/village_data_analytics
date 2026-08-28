@@ -103,13 +103,16 @@ model Houses {
   parcelId      String?               @map("parcel_id") @db.VarChar(100)
   houseType     HouseType?            @default(OTHER) @map("house_type")
   ownershipType OwnershipType?        @default(UNKNOWN) @map("ownership_type")
+  ownerPersonId Int?                  @map("owner_id")
   latitude      Decimal?              @db.Decimal(10, 7)
   longitude     Decimal?              @db.Decimal(10, 7)
   createdAt     DateTime?             @default(now()) @map("created_at") @db.Timestamp(0)
   updatedAt     DateTime?             @updatedAt @map("updated_at") @db.Timestamp(0)
   families      Families[]
   facilities    HouseholdFacilities[]
+  owner         People?               @relation("HouseOwner", fields: [ownerPersonId], references: [id], onDelete: SetNull, onUpdate: Cascade, map: "fk_houses_owner")
 
+  @@index([ownerPersonId], map: "fk_houses_owner")
   @@map("houses")
 }
 
@@ -186,6 +189,7 @@ model People {
   lands          Land[]
   skills         Skills[]
   vehicles       Vehicles[]
+  ownedHouses    Houses[] @relation("HouseOwner")
 
   @@index([familyId], map: "fk_people_family")
   @@index([cnic], map: "idx_people_cnic")
