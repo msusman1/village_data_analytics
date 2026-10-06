@@ -1,4 +1,5 @@
 import {Request, Response, Router} from 'express';
+import {HighestEducationLevel} from '@prisma/client';
 import {prisma} from '../db/prisma';
 
 const router = Router();
@@ -611,11 +612,16 @@ router.get('/education', async (req: Request, res: Response) => {
         const l = Number(limit);
         const where: any = {};
         if (search) {
-            where.OR = [
-                {educationStatus: {contains: String(search)}},
-                {highestEducationLevel: {equals: String(search)}},
-                {person: {fullName: {contains: String(search)}}},
-            ];
+            const searchString = String(search).trim();
+            if (searchString) {
+                where.OR = [
+                    {educationStatus: {contains: searchString}},
+                    {person: {fullName: {contains: searchString}}},
+                ];
+                if (Object.values(HighestEducationLevel).some((level) => level === searchString)) {
+                    where.OR.push({highestEducationLevel: {equals: searchString}});
+                }
+            }
         }
         const [items, total] = await Promise.all([
             prisma.educationData.findMany({
